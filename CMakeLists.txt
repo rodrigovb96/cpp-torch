@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
+project(cpp-torch)
 
 option(BUILD_CUDA  "Enable cuda"         OFF)
 option(BUILD_TESTS "Build test programs" OFF)
@@ -10,11 +11,13 @@ if(UNIX)
   add_definitions("-std=c++11 -O2")
 endif()
 
+if( NOT DEFINED TORCH_INSTALL_DIR )
+    message(SEND_ERROR "TORCH_INSTALL_DIR NOT SET (usually set to /usr/local/cpp-torch")
+endif()
 
 if(NOT Torch_FOUND)
   find_package(Torch REQUIRED)
 endif()
-
 
 macro(generate_project name src)
   # create target
@@ -25,11 +28,12 @@ macro(generate_project name src)
   endif()
 
   # include dirs
-  target_include_directories(${name} PRIVATE "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}" "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}/THNN" "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}/TH")
+  target_include_directories(${name} PRIVATE "${TORCH_INSTALL_DIR}/include"
+  "${TORCH_INSTALL_DIR}/include/THNN" "${TORCH_INSTALL_DIR}/include/TH")
 
   # link/usr/share/cmake-3.5/Modules/
-  find_library(TH_LIBRARY NAMES TH PATHS ${Torch_INSTALL_PREFIX}/${Torch_INSTALL_LIB_SUBDIR})
-  find_library(THNN_LIBRARY NAMES THNN PATHS ${Torch_INSTALL_PREFIX}/${Torch_INSTALL_LIB_SUBDIR}/lua/5.1)
+  find_library(TH_LIBRARY NAMES TH PATHS "${TORCH_INSTALL_DIR}/lib")
+  find_library(THNN_LIBRARY NAMES THNN PATHS "${TORCH_INSTALL_DIR}/lib")
   target_link_libraries(${name} ${TH_LIBRARY} ${THNN_LIBRARY})
 
   # install target
@@ -38,7 +42,7 @@ macro(generate_project name src)
     ARCHIVE DESTINATION "lib"
     LIBRARY DESTINATION "lib"
   )
-  set_target_properties(${name} PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+  set_target_properties(${name} PROPERTIES INSTALL_RPATH "${TORCH_INSTALL_DIR}/lib")
   set_target_properties(${name} PROPERTIES MACOSX_RPATH TRUE)
 endmacro()
 
@@ -65,21 +69,6 @@ foreach(each_file ${cpptorch_src})
   source_group("${group_name}" FILES "${each_file}")
 endforeach()
 generate_project(cpptorch "${cpptorch_src}")
-
-
-# cpptorch_cuda
-if(BUILD_CUDA)
-  if(NOT CUDA_FOUND)
-    find_package(CUDA 5.5 REQUIRED)
-  endif()
-  file(GLOB_RECURSE cpptorch_cuda_src "src_cuda/*.cpp" "src_cuda/*.cc")
-  generate_project(cpptorch_cuda "${cpptorch_cuda_src}")
-  target_include_directories(cpptorch_cuda PRIVATE ${CUDA_INCLUDE_DIRS} "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}" "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}/THCUNN" "${Torch_INSTALL_PREFIX}/${Torch_INSTALL_INCLUDE_SUBDIR}/THC")
-  find_library(THC_LIBRARY NAMES THC PATHS ${Torch_INSTALL_PREFIX}/${Torch_INSTALL_LIB_SUBDIR})
-  find_library(THCUNN_LIBRARY NAMES THCUNN PATHS ${Torch_INSTALL_PREFIX}/${Torch_INSTALL_LIB_SUBDIR}/lua/5.1)
-  target_link_libraries(cpptorch_cuda cpptorch ${THC_LIBRARY} ${THCUNN_LIBRARY})
-endif()
-
 
 # install headers
 file(GLOB_RECURSE cpptorch_headers "include/*.h")
